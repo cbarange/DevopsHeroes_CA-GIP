@@ -1,0 +1,81 @@
+image: docker:latest
+services:
+  - name: docker:dind
+
+variables:
+  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+  GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+
+stages:
+  - test
+  - build
+  - sonarcloud-check
+  - deploy
+
+test:
+  stage: test
+  before_script:
+    - apk add --update curl && rm -rf /var/cache/apk/*
+  script:
+    - wget https://go.dev/dl/go1.17.6.linux-amd64.tar.gz
+    - tar -C /usr/local -xzf go1.17.6.linux-amd64.tar.gz
+    - export PATH=$PATH:/usr/local/go/bin
+    - go version
+    - export MONGOURI="mongodb+srv://db-test-user:GHQN7nmara10xuXv@cluster0.s6nzt.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
+    - go mod tidy
+    - go run main.go &
+    # - for i in {1..8}; do echo "Feed database and running test $i/7"; sleep 5; done
+    - for i in `seq 1 8`;do echo "Feed database and running test $i/7" ; sleep 5;done
+    - echo "Database feeding ✔"
+    - curl 127.0.0.1:8080/money
+    - echo "API Route work ✔"    
+    # eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-api:e06af16bc3f0abb20751cf6b3f70384d97c208f6
+  only:
+      - dev
+      - main
+
+build:
+  stage: build
+  before_script:
+    - docker logout
+    - cat $GCP_KEY | docker login -u _json_key --password-stdin https://eu.gcr.io
+    - docker info
+  script:
+    #- docker pull $REGISTRY_IMAGE:latest || true
+    #- docker build -t hackathon-api:$CI_COMMIT_SHA .
+    - docker build -t eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-api:$CI_COMMIT_SHA -t eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-api:latest .
+    #- docker push hackathon-api:$CI_COMMIT_SHA
+    - docker push eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-api:$CI_COMMIT_SHA
+    - docker push eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-api:latest
+
+
+sonarcloud-check:
+  stage: sonarcloud-check
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner
+  only:
+    - merge_requests
+    - main
+    - dev
+
+deploy:
+  stage: deploy
+  dependencies:
+    - build
+  image:
+     name: bitnami/kubectl:latest
+     entrypoint: [""]
+  script:
+   - kubectl config use-context devops-heroes-team-8/hackathon-api:agent-gke
+   - kubectl apply -f gcloud/hackaton-api-deployement-dev.yaml
+   - kubectl apply -f gcloud/hackaton-ui-deployement-dev.yaml
+  only:
+    - main
+    - dev

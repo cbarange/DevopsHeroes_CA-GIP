@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hackathon-api
+  namespace: dev
+  labels:
+    app: hackathon-api
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: hackathon-api
+  # type: ClusterIP
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hackathon-api
+  namespace: dev
+  labels:
+    app: hackathon-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hackathon-api
+  template:
+    metadata:
+      labels:
+        app: hackathon-api
+    spec:
+      containers:
+      - name: hackathon-api
+        image: eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-api:latest
+        # eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-ui:latest
+        imagePullPolicy: Always
+        env:
+        - name: MONGOURI
+          value: "mongodb+srv://db-test-user:GHQN7nmara10xuXv@cluster0.s6nzt.mongodb.net/development_database?retryWrites=true&w=majority"
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: https
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: "250m"

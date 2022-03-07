@@ -1,0 +1,65 @@
+# kubectl apply -f hackaton-ui-deployement-prod.yaml
+# kubectl get services --namespace=prod
+# kubectl get pods --namespace=prod
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hackathon-ui
+  namespace: prod
+  labels:
+    app: hackathon-ui
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  selector:
+    app: hackathon-ui
+  # type: ClusterIP
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hackathon-ui
+  namespace: prod
+  labels:
+    app: hackathon-ui
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hackathon-ui
+  template:
+    metadata:
+      labels:
+        app: hackathon-ui
+    spec:
+      containers:
+      - name: hackathon-ui
+        image: eu.gcr.io/cagip-hackathon-eq08-inno0-fb/hackathon-ui:latest
+        env:
+        - name: VUE_APP_API_ENDPOINT
+          value: "https://api.julespeguet.fr"
+        ports:
+        - name: http
+          containerPort: 80
+        - name: https
+          containerPort: 80
+        resources:
+          requests:
+            cpu: "250m"
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - hackathon-ui
+            topologyKey: "kubernetes.io/hostname"
+
+      # imagePullSecrets:
+      # - name: api-post-secret-github 

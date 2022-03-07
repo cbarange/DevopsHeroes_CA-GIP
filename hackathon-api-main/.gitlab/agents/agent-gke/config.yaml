@@ -1,0 +1,8 @@
+gitops:
+  manifest_projects:
+  - id: "devops-heroes-team-8/hackathon-api"
+    paths:
+    - glob: '/gcloud/*.{yaml,yml,json}'
+  ci_access:
+    projects:
+      - id: "33426970"
